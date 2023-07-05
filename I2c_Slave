@@ -1,0 +1,61 @@
+#include <Wire.h>
+#include <ArduinoJson.h>
+
+#define SLAVE_ADDRESS 9
+
+void setup() {
+  Wire.begin(SLAVE_ADDRESS);
+  Wire.onReceive(receiveEvent);
+  Wire.onRequest(requestEvent);
+
+  Serial.begin(9600);
+}
+
+void loop() {
+  // Perform additional tasks if needed
+}
+
+void receiveEvent(int byteCount) {
+  // Read the received JSON data
+  String jsonData = "";
+  while (Wire.available()) {
+    char c = Wire.read();
+    jsonData += c;
+  }
+
+  // Parse the JSON data
+  DynamicJsonDocument jsonDoc(128);
+  DeserializationError error = deserializeJson(jsonDoc, jsonData);
+
+  // Check for parsing errors
+  if (error) {
+    Serial.print("Error parsing JSON: ");
+    Serial.println(error.c_str());
+    return;
+  }
+
+  // Access the parsed JSON data
+  int rssi = jsonDoc["rssi"];
+  int battery = jsonDoc["battery"];
+
+  // Process the received data
+  Serial.println("Received JSON data:");
+  Serial.print("RSSI: ");
+  Serial.println(rssi);
+  Serial.print("Battery: ");
+  Serial.println(battery);
+}
+
+void requestEvent() {
+  // Prepare response JSON data
+  DynamicJsonDocument jsonDoc(128);
+  jsonDoc["response"] = "Data received successfully";
+
+  // Serialize the JSON object to a string
+  String response;
+  serializeJson(jsonDoc, response);
+
+  // Send the response to the master
+  Wire.write(response.c_str());
+}
+
