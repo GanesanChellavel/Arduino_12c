@@ -1,0 +1,29 @@
+#include <Wire.h>
+#include <ArduinoJson.h>
+
+#define SLAVE_ADDRESS 9
+
+void setup() {
+  Wire.begin();
+  Serial.begin(9600);
+}
+
+void loop() {
+  // Create a JSON object
+  StaticJsonDocument<128> jsonDoc;
+  
+  // Add data to the JSON object
+  jsonDoc["rssi"] = 70;
+  jsonDoc["battery"] = 30;
+  
+  // Serialize the JSON object to a string
+  String jsonData;
+  serializeJson(jsonDoc, jsonData);
+  
+  // Send the JSON data to the slave
+  Wire.beginTransmission(SLAVE_ADDRESS);
+  Wire.write(jsonData.c_str());
+  Wire.endTransmission();
+  
+  delay(1000); // Delay between transmissions
+}
