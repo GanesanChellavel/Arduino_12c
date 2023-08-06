@@ -1,0 +1,182 @@
+.......................i2c slave + SAL mqtt working code.................
+
+#include <Wire.h>
+#include <ArduinoJson.h>
+#include <MKRNB.h>
+#include <PubSubClient.h>
+
+const char PINNUMBER[] = "";
+const char APN[] = "hologram";
+
+// MQTT info
+const char* mqtt_server = "testmqtt";
+const int port = 1883;
+
+const char* clientID = "MKRNB1500";
+const char* topic = "sal/aws/643111";
+const char* username = "aws";
+const char* password = "aws@1234";
+//const char* payload = "Hello from Velu bhai";
+// Initialize the library instance
+NBClient LTEclient;
+GPRS gprs;
+NB nbAccess;
+
+// JSON document size
+const size_t JSON_BUFFER_SIZE = JSON_OBJECT_SIZE(50);
+
+// Create a JSON document
+StaticJsonDocument<JSON_BUFFER_SIZE> jsonDoc;
+
+
+// Connect the PubSub client
+PubSubClient client(LTEclient);
+// Connection and reconnection function
+void reconnect() {
+  while (!client.connected()) {
+    // Attempt to connect
+    Serial.println("Connection attempt to broker");
+    if (client.connect(clientID, username, password)) { // client.connect(clientID,username,password)
+      Serial.println("Connected");
+      //client.publish(topic, "Hello MQTT");
+      // client.subscribe(subtopic);
+    } else {
+      Serial.print("Failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 2 seconds");
+      // Wait 2 seconds before retrying
+      delay(2000);
+    }
+  }
+}
+
+
+void setup() {
+  Wire.begin();
+  Serial.begin(115200);
+  while (!Serial) {
+    ; // Wait for the serial port to connect. Needed for native USB port only
+  }
+
+  Serial.println("Starting up");
+
+  // Connection state
+  bool connected = false;
+
+  // After starting the modem with NB.begin()
+  // Attach to the GPRS network with the APN, login, and password
+  while (!connected) {
+    if ((nbAccess.begin(PINNUMBER) == NB_READY) &&
+        (gprs.attachGPRS() == GPRS_READY)) {
+      connected = true;
+    } else {
+      Serial.println("Not connected");
+      delay(1000);
+    }
+  }
+
+  Serial.println("Modem started and attached to GPRS network");
+
+  client.setServer(mqtt_server, port);
+  Serial.println("Server details set");
+
+}
+
+void loop() {
+  Wire.requestFrom(8, 100); // Request data from Slave with address 8 and expect 100 bytes
+
+  while (Wire.available()) {
+    // If the connection drops, then reconnect it
+  if (!client.connected()) {
+    reconnect();
+  }
+
+  // This should be called regularly to allow the client to process incoming messages
+  // and maintain its connection to the server.
+  client.loop();
+
+  // Publish the I2C data
+  
+  //client.publish(topic, payload);
+  
+  // Debug print
+  Serial.println("Message Published");
+
+  // Delay before the next iteration
+  delay(1000);
+    
+
+    String jsonStr = Wire.readString(); // Read JSON string from master
+    Serial.println("Received JSON: " + jsonStr);
+
+    // Parse JSON data
+    StaticJsonDocument<200> jsonDoc;
+    DeserializationError error = deserializeJson(jsonDoc, jsonStr);
+
+    if (error) {
+   Serial.println("JSON parsing error!");
+    } else {
+      
+      float battery = jsonDoc["battery"];
+      float rssi = jsonDoc["rssi"];
+      // Create a new JSON document for publishing
+  StaticJsonDocument<JSON_BUFFER_SIZE> publishJsonDoc;
+  publishJsonDoc["battery"] = battery;
+  publishJsonDoc["rssi"] = rssi;
+
+  // Serialize the JSON document to a string
+  String publishData;
+  serializeJson(publishJsonDoc, publishData);
+
+  // Publish the data using MQTT
+  client.publish(topic, publishData.c_str());
+
+  // Debug print
+  Serial.println("Published JSON data:");
+  Serial.println(publishData);
+      Serial.print("Battery: ");
+      Serial.print(battery);
+      Serial.print(" %, Rssi: ");
+      Serial.print(rssi);
+      Serial.println(" dBm");
+    }
+  }
+
+  delay(5000); // Request data every 5 seconds
+}
+
+
+
+--------------i2c Master code esp32--------------------------------
+
+#include <Wire.h>
+#include <ArduinoJson.h>
+
+void setup() {
+  Wire.begin(8); // Set slave address to 8
+  Wire.onRequest(sendData);
+
+  Serial.begin(115200);
+}
+
+void loop() {
+  // You can add code here to update sensor data if needed
+}
+
+void sendData() {
+  // Create a JSON object
+  StaticJsonDocument<200> jsonDoc;
+  jsonDoc["battery"] = 25.5;
+  jsonDoc["rssi"] = 60.0;
+
+  // Serialize JSON to a string
+  String jsonString;
+  serializeJson(jsonDoc, jsonString);
+
+  Wire.write(jsonString.c_str()); // Send JSON data to slave
+}
+
+-----------------------------------------------------------------------------------------------------
+
+
+
