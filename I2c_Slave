@@ -58,4 +58,29 @@ void requestEvent() {
   // Send the response to the master
   Wire.write(response.c_str());
 }
+----------------------------------------------------------
+#include <Wire.h>
+
+void setup() {
+  Wire.begin(0x27); // Set the device address to 8 and enable I2C as slave
+  Wire.onReceive(receiveEvent); // Attach the receive event function
+  Serial.begin(115200);
+}
+
+void loop() {
+  delay(100); // Let the receive event handle communication
+}
+
+void receiveEvent(int byteCount) {
+  while (Wire.available()) {
+    char receivedChar = Wire.read(); // Read the incoming data
+    Serial.print("Received: ");
+    Serial.println(receivedChar);
+
+    // Respond to the master
+    //Wire.beginTransmission(0x51); // Address of the master Arduino
+   // Wire.write("Hello from slave!"); // Send response data
+   // Wire.endTransmission();
+  }
+}
 
