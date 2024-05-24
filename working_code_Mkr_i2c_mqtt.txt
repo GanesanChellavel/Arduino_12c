@@ -10,7 +10,7 @@ const char PINNUMBER[] = "";
 const char APN[] = "hologram";
 
 // MQTT info
-const char* mqtt_server = "emqtt32.spaceagelabs.com.sg";
+const char* mqtt_server = "emqtt.............com.sg";
 const int port = 1883;
 
 const char* clientID = "MKRNB1500";
